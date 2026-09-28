@@ -86,7 +86,7 @@ uv run <adapter-name> --output-dir /path/to/output   # generate task directories
 Once the tasks exist, run them with the Harbor harness, e.g.:
 
 ```bash
-harbor run -p /path/to/output -a claude-code -m "anthropic/claude-opus-4-1"
+harbor run -p /path/to/output -a claude-code -m "anthropic/claude-opus-5"
 ```
 
 See a specific adapter's own `README.md` for its exact commands, parity results, and any special
@@ -106,40 +106,18 @@ Key conventions (enforced by [`scripts/validate_adapter.py`](scripts/validate_ad
   `<AdapterName>Adapter` class whose `run(self)` writes tasks under `self.output_dir`.
 - Task names must be stable across runs and unique / registry-safe.
 
-## Documentation
-
-- [`docs/adapters.mdx`](docs/adapters.mdx) — the comprehensive adapter spec (the "Agent Guide"): the
-  contract for building an adapter, including schemas, directory structures, and the step-by-step
-  parity workflow.
-- [`docs/adapters-human.mdx`](docs/adapters-human.mdx) — a concise human walkthrough.
-
-## Skills
-
-- [`skills/create-adapter/`](skills/create-adapter/) — scaffold and guide a new adapter build.
-- [`skills/upload-parity-experiments/`](skills/upload-parity-experiments/) — publish parity/oracle
-  result folders to the `harborframework/parity-experiments` Hugging Face dataset.
-
-## CI
-
-Workflows live in [`.github/workflows/`](.github/workflows/):
-
-- **`adapter-review.yml`** — comment `/review-adapter` on a PR to run structural validation
-  (`scripts/validate_adapter.py` over the adapters the PR touches under `src/`) followed by an
-  AI review against the adapter spec.
-- **`update-parity-summary.yml`** — when a push to the default branch changes any
-  `src/*/parity_experiment.json`, regenerates the repo-root `parity_summary.csv`.
-
-## Relationship to the Harbor ecosystem
-
-| Repo | Purpose |
-|------|---------|
-| [`harbor-framework/harbor`](https://github.com/harbor-framework/harbor) | The Harbor CLI / evaluation framework (the harness). |
-| `harbor-framework/adapters` (this repo) | Benchmark adapters that generate Harbor tasks. |
-| [`harbor-framework/harbor-cookbook`](https://github.com/harbor-framework/harbor-cookbook) | End-to-end examples and guides. |
-| [`harborframework/parity-experiments`](https://huggingface.co/datasets/harborframework/parity-experiments) | Uploaded parity/oracle experiment artifacts. |
-
 ## Citation
 
-If you use **Harbor** in academic work, please cite it via the "Cite this repository" button on
-GitHub or the BibTeX entry in the [Harbor repository](https://github.com/harbor-framework/harbor).
+If you use **Harbor adapters** in academic work, please cite the paper:
 
+```bibtex
+@misc{shi2026harbor,
+  title         = {Harbor Adapters and Harbor-Index: Infrastructure and a Curated Meta-Dataset for Large-Scale Agentic Evaluation},
+  author        = {Shi, Lin and Lin, Haowei and Zhu, Zixuan and Zhou, Xiaoyue and Li, Xiang and Lin, Xiangning and Deng, Yaxuan and Xu, Han and Li, Yuangang and Li, Shanda and Chen, Zizhao and Xing, Hanwen and Raj, Harsh and Chen, Bo and Shi, Quan and Dillmann, Steven and Gao, Yipeng and Khanna, Puneesh and Lu, Ruofan and Zhou, Chao Beyond and Yang, Michael and Zhang, Robert and Chai, Siyuan and Chang, Jiayu and Chen, Yizhao and Chen, Xiaokun and Dai, Yiwei and Yang, Wenting and Liu, Hange and Liu, Minghao and Wang, Zihan and others},
+  year          = {2026},
+  eprint        = {2609.04298},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.LG},
+  url           = {https://arxiv.org/abs/2609.04298}
+}
+```
