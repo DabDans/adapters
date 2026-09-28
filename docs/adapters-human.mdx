@@ -9,7 +9,7 @@ import { File, Folder, Files } from 'fumadocs-ui/components/files';
 To add a new benchmark or dataset to Harbor, you create an [adapter](https://github.com/harbor-framework/adapters) that translates the original benchmark's tasks into Harbor format.
 
 <Callout title="Using AI to build your adapter?">
-AI agents should follow the spec at [Adapter AI Guideline](/docs/datasets/adapters)
+AI agents should follow the spec at [Adapter AI Guideline](https://harborframework.com/docs/datasets/adapters)
 instead of this page. That document contains the complete schema,
 all edge cases, and machine-verifiable examples.
 Do not use the tutorial below as your source of truth.
@@ -100,7 +100,7 @@ src/{adapter-name}/
 
 ### 2.3 Fill in adapter code
 
-Complete `adapter.py` and `main.py` so that running the adapter produces a valid task directory for each benchmark task. Each generated task must satisfy Harbor's [task format](/docs/tasks) by following this structure:
+Complete `adapter.py` and `main.py` so that running the adapter produces a valid task directory for each benchmark task. Each generated task must satisfy Harbor's [task format](https://harborframework.com/docs/tasks) by following this structure:
 
 <Files>
   <Folder name="<adapter-name>" defaultOpen>
@@ -217,7 +217,7 @@ The purpose of parity experiments is to prove result equivalence between Harbor 
 harbor run -p datasets/<adapter-name> -a <agent> -m <model>
 ```
 
-See the [AI adapter guide](/docs/datasets/adapters#reporting-format-mean--sample-sem) for the exact SEM formula and why we report SEM rather than sample std.
+See the [AI adapter guide](https://harborframework.com/docs/datasets/adapters#reporting-format-mean--sample-sem) for the exact SEM formula and why we report SEM rather than sample std.
 
 ## 6. Record Parity Results
 
@@ -353,7 +353,7 @@ If you're converting a Terminal-Bench adapter, here are the key differences:
 | Verification | Exit code (pytest) | Reward file: `/logs/verifier/reward.txt` |
 | Output dir | `tasks/` | `datasets/` |
 | Registry | Dataset-level `dataset_path` | `dataset.toml` + `harbor init` publishing workflow |
-| CLI | `tb run --dataset` | `harbor run -d` / `harbor run -t` /`harbor run -p` |
+| CLI | `tb run --dataset` | `harbor run -d` / `harbor run -t` / `harbor run -p` |
 | Metrics | Binary pass/fail | Float rewards, multiple metrics |
 
 **Important:** If Terminal-Bench used a tweaked metric, re-implement to support the **original** benchmark metrics. Harbor supports multiple metrics as rewards.
@@ -369,7 +369,7 @@ Migration checklist:
 
 ## Resources
 
-- [Harbor docs](/docs/getting-started): Running tasks and jobs
+- [Harbor docs](https://harborframework.com/docs/getting-started): Running tasks and jobs
 - [Harbor repo](https://github.com/harbor-framework/harbor): Examples and configs
-- [Agent tutorial](/docs/agents): Creating custom agents
+- [Agent tutorial](https://harborframework.com/docs/agents): Creating custom agents
 - [Discord](https://discord.com/invite/6xWPKhGDbA): Ask questions in `#adapters-spam`
