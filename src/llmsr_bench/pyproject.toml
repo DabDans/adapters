@@ -1,0 +1,24 @@
+[project]
+name = "llmsr-bench-adapter"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "harbor==0.23.0",
+    "h5py",
+    "datasets",
+    "huggingface-hub",
+    "numpy",
+    "pandas",
+    "scipy",
+    "sympy",
+    "scikit-learn",
+    "PyYAML",
+    "requests",
+    "openai",
+    "absl-py",
+    "torch",
+    "tensorboard",
+]
+
+[tool.uv]
+package = false

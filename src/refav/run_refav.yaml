@@ -1,0 +1,8 @@
+# RefAV adapter configuration for Harbor
+# Usage: uvx --from harbor==0.23.0 harbor run -c src/refav/run_refav.yaml
+
+datasets:
+  - path: datasets/refav
+
+agents:
+  - name: oracle
