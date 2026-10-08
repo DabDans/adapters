@@ -1,0 +1,58 @@
+{
+  "adapter_name": "gitgoodbench",
+  "evidence_type": "historical_harbor_reference_validation",
+  "independent_two_harness_parity": false,
+  "acceptance_status": "pending_maintainer_agreement_on_parity_or_policy_exception",
+  "source_adapter_pr": "https://github.com/harbor-framework/harbor/pull/2292",
+  "source_adapter_revision": "a007cb51577e62e9de7f8fe39947722b145b8492",
+  "upstream_revision": "b11ae6cd92be2b8b96e237d379427e04ad59c455",
+  "model_runs": [
+    {
+      "date": "2026-07-10",
+      "agent": "codex@0.144.1",
+      "model": "gpt-5.4",
+      "reasoning_effort": "xhigh",
+      "tasks": 60,
+      "attempts_per_task": 1,
+      "concurrency": 4,
+      "successes": 22,
+      "mean_reward": 0.36666666666666664,
+      "trial_errors": 0,
+      "retries": 0,
+      "duration": "1h 39m",
+      "estimated_cost_usd": 42.69,
+      "sample_sem": null,
+      "job_id": "65744320-2874-467f-84c3-dadf27fc6277",
+      "tokens": {
+        "input": 66350885,
+        "cached_input": 59247872,
+        "output": 674422
+      }
+    }
+  ],
+  "oracle_runs": [
+    {
+      "date": "2026-07-16",
+      "harbor_version": "0.18.0",
+      "agent": "oracle@1.0.0",
+      "tasks": 60,
+      "attempts_per_task": 1,
+      "concurrency": 3,
+      "successes": 60,
+      "mean_reward": 1.0,
+      "trial_errors": 0,
+      "retries": 0,
+      "duration": "12m 6s",
+      "agent_network_mode": "no-network",
+      "verifier_network_mode": "no-network",
+      "job_id": "86f53ee7-a969-4ad3-b933-69da7a915599"
+    }
+  ],
+  "dataset_pr": [
+    "https://huggingface.co/datasets/harborframework/harbor-datasets/discussions/66"
+  ],
+  "evidence_pr": [
+    "https://huggingface.co/datasets/harborframework/parity-experiments/discussions/264"
+  ],
+  "notes": "Historical results only, not new measurements after repository migration. The old comparison-shaped artifact duplicated the single Harbor model run on both sides. It is archived for traceability and is not independent parity. Sample SEM is undefined for one run. No policy exception has been confirmed."
+}
