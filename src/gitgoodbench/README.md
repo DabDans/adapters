@@ -8,6 +8,7 @@ into offline Harbor Git-resolution tasks. The other 60 `file_commit_chain` rows 
 excluded because their history-quality judge cannot be replaced by exact tree comparison.
 This is the reference-validation variant migrated from
 [harbor#2292](https://github.com/harbor-framework/harbor/pull/2292).
+Migration review: [adapters#20](https://github.com/harbor-framework/adapters/pull/20).
 
 ## What is GitGoodBench?
 
