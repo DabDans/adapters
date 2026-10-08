@@ -7,6 +7,7 @@ disposable, internal-network Harbor Docker environment. It does not convert the 
 into a refusal-classification task.
 
 Migrated from [harbor#2419](https://github.com/harbor-framework/harbor/pull/2419).
+Migration review: [adapters#21](https://github.com/harbor-framework/adapters/pull/21).
 Upstream data and source retain their original license terms.
 
 ## What is RedCode-Exec?
