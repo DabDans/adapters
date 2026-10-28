@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -66,12 +67,38 @@ class GitGoodBenchAdapter:
                 print(f"[gitgoodbench] skipping row {row_id!r}: {exc}", file=sys.stderr)
                 continue
             task_dir = self.output_dir / task["name"]
+            if task_dir.is_symlink():
+                raise ValueError(f"Refusing to replace symlink: {task_dir}")
             if task_dir.exists():
                 if not self.overwrite:
                     continue
-                shutil.rmtree(task_dir)
+                if not task_dir.is_dir():
+                    raise ValueError(f"Task path is not a directory: {task_dir}")
 
-            self._write_task(task_dir, task)
+            # Build on the destination filesystem. A fetch/generation failure must
+            # leave the previous task intact, including its hidden assets.
+            staging = Path(
+                tempfile.mkdtemp(prefix=f".{task['name']}-", dir=self.output_dir)
+            )
+            prepared, backup = staging / "prepared", staging / "previous"
+            installed = False
+            try:
+                self._write_task(prepared, task)
+                replaced = task_dir.exists()
+                if replaced:
+                    task_dir.rename(backup)
+                try:
+                    prepared.rename(task_dir)
+                    installed = True
+                except OSError:
+                    if replaced:
+                        backup.rename(task_dir)
+                    raise
+            finally:
+                # If even rollback failed, retain the old task under previous/
+                # for recovery rather than deleting the only surviving copy.
+                if installed or not backup.exists():
+                    shutil.rmtree(staging)
             generated.append(task_dir)
 
         return generated
@@ -94,6 +121,7 @@ class GitGoodBenchAdapter:
     def _select_rows(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         type_keys = ("sample_type", "type", "task_type")
         selected = []
+        matched_ids: set[str] = set()
         for row in rows:
             # If the row carries any recognized type key, require it to match the
             # requested split. Rows that slip through without a usable type but
@@ -114,18 +142,22 @@ class GitGoodBenchAdapter:
             raw_id = str(
                 _first(row, "id", "task_id", "instance_id", default=normalized_id)
             )
-            if (
-                self.task_ids
-                and raw_id not in self.task_ids
-                and normalized_id not in self.task_ids
-            ):
+            aliases = {
+                raw_id,
+                normalized_id,
+                f"jetbrains/gitgoodbench__{normalized_id.removeprefix('gitgoodbench-')}",
+            }
+            matched = self.task_ids.intersection(aliases)
+            if self.task_ids and not matched:
                 continue
-
+            matched_ids.update(matched)
             selected.append(row)
-            if self.limit is not None and len(selected) >= self.limit:
-                break
-
-        return selected
+        unknown = self.task_ids - matched_ids
+        if unknown:
+            raise ValueError(
+                f"Unknown task IDs in split {self.split!r}: {sorted(unknown)}"
+            )
+        return selected if self.limit is None else selected[: self.limit]
 
     def _write_task(self, task_dir: Path, task: dict[str, Any]) -> None:
         shutil.copytree(TEMPLATE_ROOT, task_dir)

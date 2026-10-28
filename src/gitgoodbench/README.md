@@ -23,6 +23,8 @@ target tree exactly. Upstream data and source retain their original license term
 - Generates all 60 merge rows, with stable `jetbrains/gitgoodbench__<id>` task names.
 - Reconstructs each merge from an agent-visible parent-only Git bundle.
 - Keeps the target commit in hidden solution and verifier assets.
+- Grades with private Git metadata; actor configuration and hooks are not loaded,
+  and hidden target objects are never imported into the actor repository.
 - Uses the existing `no-network` agent and verifier policies.
 - Provides a local bare-repository cache and selected-task generation.
 - Preserves historical oracle and model evidence without counting one execution twice.
@@ -41,6 +43,7 @@ datasets/gitgoodbench/<task-directory>/
 │   └── target.bundle
 └── tests/
     ├── test.sh
+    ├── verify.py
     ├── target.bundle
     └── metadata.json
 ```
@@ -92,8 +95,11 @@ uv run --project src/gitgoodbench gitgoodbench \
 - `--output-dir`: defaults to `datasets/gitgoodbench` relative to the current directory,
   including when installed outside a source checkout.
 - `--limit N`: generate at most N rows; omit to generate all 60.
-- `--overwrite`: replace existing generated tasks.
-- `--task-ids <id> ...`: select upstream IDs or generated directory names.
+- `--overwrite`: build in a staging directory, then replace an existing task; a
+  generation failure preserves the previous task and an installation failure restores it.
+- `--task-ids <id> ...`: select upstream IDs, generated directory names, or qualified
+  names such as `jetbrains/gitgoodbench__<id>`. Unknown IDs in the requested split fail
+  before generation, including IDs beyond `--limit`. `--limit 0` remains a no-op.
 - `--split merge`: the only supported split.
 
 ## Comparison with Original Benchmark (Parity)
@@ -118,6 +124,21 @@ asks for team agreement on a matched harness or a policy exception before furthe
 once, alongside the oracle. The old comparison-shaped JSON is preserved in
 [`historical_evidence/`](historical_evidence/README.md), outside parity aggregation.
 The non-empty-parity validation requirement remains an explicit review blocker.
+
+### Reconstructed reference preparation
+
+The reconstruction in [harbor#3327](https://github.com/harbor-framework/harbor/pull/3327)
+is now pinned in a source-only preparation command:
+
+```bash
+uv run --project src/gitgoodbench python src/gitgoodbench/parity/prepare_reference.py \
+  --output-dir /tmp/gitgoodbench-reference-review
+```
+
+This fetches the pinned original source and applies the pinned reconstruction patch. It
+does not run a model or build Docker. [Alignment decisions](parity/ALIGNMENT.md) document
+prompt, metric, isolation, agent, budget, and statistics differences that still require
+agreement. The other PR's results are not evidence for this variant.
 
 ### Historical full oracle verification
 
@@ -154,12 +175,21 @@ These are historical measurements, not a claim about a newly installed harness v
 ## Notes & Caveats
 
 - Migration source: `harbor#2292` at `a007cb51577e62e9de7f8fe39947722b145b8492`.
-  Task instructions, verifier, templates, and bundle construction are preserved. Changes
-  concern package paths, local test discovery, and evidence classification.
+  The initial migration preserved task behavior. The 2026-10-28 follow-up adds safe
+  replacement, qualified ID handling, and private Git metadata for grading. Instructions,
+  target bundles, and historical evidence are retained; old runs do not validate this
+  updated verifier.
 - Generation needs host network access; generated tasks run offline. Target objects are
   excluded from parent bundles. Keep solution/verifier assets outside agent inputs.
 - The additional clean, committed repository checks reject incomplete merges without
   imposing style rules beyond the target tree.
+- The hardened offline profile accepts the generated ordinary `.git` directory layout.
+  Worktree gitfiles, linked Git metadata, object alternates and initialized submodules
+  are rejected; actor-defined Git filters/configuration are not used. These restrictions
+  need explicit alignment before strict upstream parity is claimed. See
+  [the review matrix](parity/ALIGNMENT.md).
+- The harness must stop actor processes before grading and protect verifier executables,
+  hidden assets and reward paths. Git metadata hardening does not replace OS isolation.
 - Related proposals:
   [harbor#1519](https://github.com/harbor-framework/harbor/pull/1519) (merge subset with a
   ported reference runner) and

@@ -39,7 +39,7 @@ def main() -> None:
         "--task-ids",
         nargs="*",
         default=None,
-        help="Optional upstream task IDs or generated Harbor task directory names to include",
+        help="Upstream IDs, generated directory names, or qualified Harbor task names",
     )
     parser.add_argument(
         "--split",

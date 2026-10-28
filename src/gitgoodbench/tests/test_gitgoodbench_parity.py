@@ -325,3 +325,217 @@ def test_hidden_scripts_do_not_fetch_remote_target(
     assert merge.target not in scripts
     assert " origin " not in scripts
     assert "target.bundle" in scripts
+
+
+def _resolve_without_hidden_bundle(repo: Path) -> None:
+    (repo / "settings.txt").write_text("mode=resolved  \n", encoding="utf-8")
+    _git(repo, "add", "settings.txt")
+    _git(repo, "commit", "-m", "agent resolution")
+
+
+def test_verification_never_imports_target_into_actor(
+    tmp_path: Path, generated_git_task: tuple[Path, SyntheticMerge]
+) -> None:
+    task, merge = generated_git_task
+    repo = _prepare_agent_repo(task, tmp_path / "agent")
+    _resolve_without_hidden_bundle(repo)
+    assert not _object_exists(repo, merge.target)
+    refs_before = _git(repo, "show-ref").stdout
+    assert _run_verifier(task, repo, tmp_path / "logs")["reward"] == 1
+    assert not _object_exists(repo, merge.target)
+    assert _git(repo, "show-ref").stdout == refs_before
+
+
+@pytest.mark.parametrize("dirty_flag", ["--assume-unchanged", "--skip-worktree"])
+def test_index_flags_cannot_hide_dirty_files(
+    tmp_path: Path, generated_git_task: tuple[Path, SyntheticMerge], dirty_flag: str
+) -> None:
+    task, _ = generated_git_task
+    repo = _prepare_agent_repo(task, tmp_path / "agent")
+    _resolve_without_hidden_bundle(repo)
+    _git(repo, "update-index", dirty_flag, "settings.txt")
+    (repo / "settings.txt").write_text("dirty\n", encoding="utf-8")
+    assert _run_verifier(task, repo, tmp_path / "logs")["reward"] == 0
+
+
+def test_verifier_does_not_execute_local_git_helpers(
+    tmp_path: Path, generated_git_task: tuple[Path, SyntheticMerge]
+) -> None:
+    task, merge = generated_git_task
+    repo = _prepare_agent_repo(task, tmp_path / "agent")
+    _resolve_without_hidden_bundle(repo)
+    marker = tmp_path / "helper-executed"
+    helper = tmp_path / "helper.sh"
+    helper.write_text(f'#!/bin/sh\ntouch "{marker}"\nexit 0\n', encoding="utf-8")
+    helper.chmod(0o755)
+    _git(repo, "config", "core.fsmonitor", str(helper))
+    _git(repo, "config", "diff.external", str(helper))
+    _git(repo, "config", "core.hooksPath", str(tmp_path))
+    # An external diff returning zero must not make an incorrect tree pass.
+    _git(
+        repo,
+        "-c",
+        "core.fsmonitor=false",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "reset",
+        "--hard",
+        merge.parent1,
+    )
+    assert _run_verifier(task, repo, tmp_path / "logs")["reward"] == 0
+    assert not marker.exists()
+
+
+@pytest.mark.parametrize("layout", ["alternates", "object-symlink", "head-symlink"])
+def test_verifier_rejects_external_metadata(
+    tmp_path: Path, generated_git_task: tuple[Path, SyntheticMerge], layout: str
+) -> None:
+    task, _ = generated_git_task
+    repo = _prepare_agent_repo(task, tmp_path / "agent")
+    _resolve_without_hidden_bundle(repo)
+    if layout == "alternates":
+        (repo / ".git/objects/info").mkdir(exist_ok=True)
+        (repo / ".git/objects/info/alternates").write_text("/tmp/private-objects\n")
+    elif layout == "object-symlink":
+        (repo / ".git/objects/linked").symlink_to(tmp_path)
+    else:
+        original = (repo / ".git/HEAD").read_text()
+        outside = tmp_path / "head"
+        outside.write_text(original)
+        (repo / ".git/HEAD").unlink()
+        (repo / ".git/HEAD").symlink_to(outside)
+    assert _run_verifier(task, repo, tmp_path / "logs")["reward"] == 0
+
+
+def test_reward_replaces_symlink_and_stale_success(
+    tmp_path: Path, generated_git_task: tuple[Path, SyntheticMerge]
+) -> None:
+    task, _ = generated_git_task
+    repo = _prepare_agent_repo(task, tmp_path / "agent")
+    logs = tmp_path / "logs"
+    logs.mkdir()
+    unrelated = tmp_path / "unrelated"
+    unrelated.write_text("unchanged")
+    (logs / "reward.txt").symlink_to(unrelated)
+    (logs / "reward.json").write_text('{"reward": 1}')
+    assert _run_verifier(task, repo, logs)["reward"] == 0
+    assert unrelated.read_text() == "unchanged"
+    assert not (logs / "reward.txt").is_symlink()
+
+
+def test_selects_qualified_names_and_validates_before_limit(tmp_path: Path) -> None:
+    module = _import_gitgood("gitgoodbench.adapter")
+    rows = [
+        {"id": "a/1", "sample_type": "merge"},
+        {"id": "a/2", "sample_type": "merge"},
+    ]
+    adapter = module.GitGoodBenchAdapter(
+        output_dir=tmp_path,
+        rows=rows,
+        limit=1,
+        task_ids=["jetbrains/gitgoodbench__a-1", "gitgoodbench-a-2"],
+    )
+    assert adapter._select_rows(rows) == rows[:1]
+    adapter.task_ids.add("missing")
+    with pytest.raises(ValueError, match="Unknown task IDs"):
+        adapter._select_rows(rows)
+
+
+def test_failed_generation_preserves_existing_task(tmp_path: Path, monkeypatch) -> None:
+    module = _import_gitgood("gitgoodbench.adapter")
+    row = {
+        "id": "a",
+        "repo": "owner/repo",
+        "parent1_hash": "1" * 40,
+        "parent2_hash": "2" * 40,
+        "merge_commit_hash": "3" * 40,
+    }
+    adapter = module.GitGoodBenchAdapter(
+        output_dir=tmp_path, rows=[row], overwrite=True
+    )
+    existing = tmp_path / "gitgoodbench-a"
+    existing.mkdir()
+    (existing / "keep").write_text("previous valid task")
+
+    def fail(destination, task):
+        destination.mkdir()
+        (destination / "partial").write_text("incomplete")
+        raise RuntimeError("fetch failed")
+
+    monkeypatch.setattr(adapter, "_write_task", fail)
+    with pytest.raises(RuntimeError, match="fetch failed"):
+        adapter.run()
+    assert (existing / "keep").read_text() == "previous valid task"
+    assert list(tmp_path.iterdir()) == [existing]
+
+
+def test_failed_install_restores_existing_task(tmp_path: Path, monkeypatch) -> None:
+    module = _import_gitgood("gitgoodbench.adapter")
+    row = {
+        "id": "a",
+        "repo": "owner/repo",
+        "parent1_hash": "1" * 40,
+        "parent2_hash": "2" * 40,
+        "merge_commit_hash": "3" * 40,
+    }
+    adapter = module.GitGoodBenchAdapter(
+        output_dir=tmp_path, rows=[row], overwrite=True
+    )
+    existing = tmp_path / "gitgoodbench-a"
+    existing.mkdir()
+    (existing / "keep").write_text("previous valid task")
+    monkeypatch.setattr(
+        adapter, "_write_task", lambda destination, task: destination.mkdir()
+    )
+    rename = Path.rename
+
+    def fail_install(source, target):
+        if source.name == "prepared":
+            raise OSError("install failed")
+        return rename(source, target)
+
+    monkeypatch.setattr(Path, "rename", fail_install)
+    with pytest.raises(OSError, match="install failed"):
+        adapter.run()
+    assert (existing / "keep").read_text() == "previous valid task"
+    assert list(tmp_path.iterdir()) == [existing]
+
+
+def test_replace_ref_cannot_turn_wrong_commit_into_target(
+    tmp_path: Path, generated_git_task: tuple[Path, SyntheticMerge]
+) -> None:
+    task, merge = generated_git_task
+    repo = _prepare_agent_repo(task, tmp_path / "agent")
+    _resolve_without_hidden_bundle(repo)
+    correct = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    _git(repo, "reset", "--hard", merge.parent1)
+    _git(repo, "replace", merge.parent1, correct)
+    assert _run_verifier(task, repo, tmp_path / "logs")["reward"] == 0
+
+
+def test_forged_tree_object_name_does_not_pass(
+    tmp_path: Path, generated_git_task: tuple[Path, SyntheticMerge]
+) -> None:
+    import zlib
+
+    task, merge = generated_git_task
+    repo = _prepare_agent_repo(task, tmp_path / "agent")
+    _git(repo, "reset", "--hard", merge.parent1)
+    expected_tree = _git(
+        merge.origin, "rev-parse", f"{merge.target}^{{tree}}"
+    ).stdout.strip()
+    wrong_tree = subprocess.run(
+        ["git", "-C", str(repo), "cat-file", "tree", "HEAD^{tree}"],
+        check=True,
+        capture_output=True,
+    ).stdout
+    forged = repo / ".git/objects" / expected_tree[:2] / expected_tree[2:]
+    forged.parent.mkdir(exist_ok=True)
+    forged.write_bytes(zlib.compress(f"tree {len(wrong_tree)}\0".encode() + wrong_tree))
+    commit = _git(
+        repo, "commit-tree", expected_tree, "-p", merge.parent1, "-m", "forged tree"
+    ).stdout.strip()
+    # Write HEAD directly: newer Git already rejects this malformed tree during
+    # reset, while an actor can modify repository metadata without using Git.
+    (repo / ".git/HEAD").write_text(commit + "\n", encoding="ascii")
+    assert _run_verifier(task, repo, tmp_path / "logs")["reward"] == 0
