@@ -193,6 +193,14 @@ uv run --project src/redcode-exec --extra harbor pytest -q src/redcode-exec/test
 
 ## Troubleshooting
 
+- The 2026-10-27 automated review [run 40593591349](https://github.com/harbor-framework/adapters/actions/runs/40593591349)
+  stopped in **Detect adapters**, before adapter validation or AI review. The workflow
+  deduplicated filenames separately per API page, producing a multiline GitHub output
+  when this PR spanned pages. Maintainer [fix #59](https://github.com/harbor-framework/adapters/pull/59)
+  aggregates pages before deduplication. A read-only check of PR #21 with that expression
+  returns one `redcode-exec` entry. This is a review-workflow failure, not a benchmark
+  result; a new review is still needed once the workflow fix is available. No duplicate
+  workflow patch or new model evaluation is included here.
 - If the default cache is at a different revision, remove it or pass the intended checkout
   with `--source-dir`.
 - Keep Docker resource and host mounts unchanged; adding host access defeats the controlled
